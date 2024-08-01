@@ -1,15 +1,18 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC Fetch the latest tube status whenever the notebook is run.
+# MAGIC
 # MAGIC Retrieve the response from the public TFL API using the Python requests library.
+# MAGIC
 # MAGIC For each line in the response JSON array, create a list with only the required columns (current_timestamp, line, status, disruption_reason).
+# MAGIC
 # MAGIC Transform the data and use a custom schema to create a DataFrame.
+# MAGIC
 # MAGIC Write the DataFrame to a SQL table tfl_tube_status.
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC CREATE SCHEMA IF NOT EXISTS TFL_DATA;
 # MAGIC USE SCHEMA TFL_DATA;
 
 # COMMAND ----------
@@ -64,7 +67,7 @@ schema = StructType([
 # Create DataFrame
 df = spark.createDataFrame(transformed_data, schema)
 # Write DataFrame to Databricks SQL table
-df.write.mode("overwrite").saveAsTable("tfl_tube_status")
+df.write.format("hive").mode("overwrite").saveAsTable("tfl_tube_status")
 
 # COMMAND ----------
 
