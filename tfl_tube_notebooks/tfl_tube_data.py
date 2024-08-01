@@ -1,17 +1,22 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC Fetch the latest tube status whenever the notebook is run, retaining the history of statuses from all runs.
+# MAGIC
 # MAGIC Retrieve the response from the public TFL API using the Python requests library.
+# MAGIC
 # MAGIC Create a custom schema to map the response JSON object.
+# MAGIC
 # MAGIC Create a DataFrame and select only the required columns (current_timestamp, line, status, disruption_reason).
+# MAGIC
 # MAGIC Append the data into a history table to maintain a record of all statuses.
+# MAGIC
 # MAGIC Load the data into the latest status table to capture the most recent statuses.
+# MAGIC
 # MAGIC This approach supports further analysis of the tube lines and ensures scalability through the use of a well-defined schema.
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC CREATE SCHEMA IF NOT EXISTS TFL_DATA;
 # MAGIC USE SCHEMA TFL_DATA;
 
 # COMMAND ----------
@@ -91,39 +96,27 @@ df = spark.createDataFrame(data, schema=schema)
 df = df.select("name","lineStatuses").withColumnRenamed("name","line") \
        .withColumn("status",col("lineStatuses")[0].statusSeverityDescription) \
        .withColumn("disruption_reason",col("lineStatuses")[0].reason) \
-       .withColumn("current_timestamp",lit(current_timestamp)).drop("lineStatuses")
+       .withColumn("status_timestamp",lit(current_timestamp)).drop("lineStatuses")
 
-df = df.select("current_timestamp","line","status","disruption_reason")
+df = df.select("status_timestamp","line","status","disruption_reason")
 
 #Write DataFrame to Databricks SQL table
 #df.write.format("delta").mode("append").option("mergeSchema", "true").saveAsTable("tfl_tube_status")
-df.write.format("delta").mode("append").saveAsTable("tfl_tube_status_h")
+df.write.format("hive").mode("append").saveAsTable("tfl_tube_status_h")
 
 # COMMAND ----------
 
 # SQL query to get the latest status for each line
-latest_status_query = """
-SELECT
-  line,
-  status,
-  disruption_reason,
-  current_timestamp
-FROM (
-  SELECT
-    line,
-    status,
-    disruption_reason,
-    current_timestamp
-  FROM tfl_tube_status_h
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY line ORDER BY current_timestamp DESC) = 1
-) t
-"""
-
-latest_status_df = spark.sql(latest_status_query)
-
-# Create or replace a temporary view to easily query the latest status
-# Write DataFrame to Databricks SQL table
-latest_status_df.write.mode("overwrite").saveAsTable("latest_tfl_tube_status")
+spark.sql(""" CREATE OR REPLACE TABLE  latest_tfl_tube_status
+              AS 
+              SELECT
+                status_timestamp,
+                line,
+                status,
+                disruption_reason
+              FROM tfl_tube_status_h
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY line ORDER BY status_timestamp DESC) = 1 
+          """)
 
 # COMMAND ----------
 
