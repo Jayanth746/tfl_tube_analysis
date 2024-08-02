@@ -128,4 +128,4 @@ spark.sql(""" CREATE OR REPLACE TABLE  latest_tfl_tube_status
 
 # MAGIC %sql
 # MAGIC -- Verify the new entries in history table
-# MAGIC select * from tfl_tube_status_h order by  `current_timestamp` desc, line
+# MAGIC select * from tfl_tube_status_h order by  status_timestamp desc, line
